@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A 10-minute nightly practice engine: recall, learn, drill, rehearse, plan, diary. Content is a JSON config.">
+<title>Calm Parent Practice</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: a night-time ritual. Home = the week as a house whose windows light up night by night; Session = one step per screen with a pinned Back/Next bar. Dark-first (used at ~9:30pm). */
+:root {
+  --night: #12131f; --dusk: #1b1d2e; --dusk-2: #262941; --ink: #ecebf3; --haze: #9c9db5; --line: #303355;
+  --lamp: #f2b45a; --lamp-ink: #1d1406; --lamp-soft: #3a2e1e; --ember: #ef8f74; --sage: #8fd0ae; --sage-soft: #1b3229; --warn: #f0c070; --warn-soft: #362a17;
+  --display: "Gloock", "Georgia", serif;
+  --body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --night: #f1eff6; --dusk: #fbfaff; --dusk-2: #e8e5f2; --ink: #1c1b2c; --haze: #5d5b74; --line: #d8d4e6;
+  --lamp: #a9620b; --lamp-ink: #fffaf2; --lamp-soft: #f6e6cc; --ember: #b4513a; --sage: #2b7651; --sage-soft: #dceee3; --warn: #865700; --warn-soft: #f7ebd0; color-scheme: light } }
+:root[data-theme="light"] {
+  --night: #f1eff6; --dusk: #fbfaff; --dusk-2: #e8e5f2; --ink: #1c1b2c; --haze: #5d5b74; --line: #d8d4e6;
+  --lamp: #a9620b; --lamp-ink: #fffaf2; --lamp-soft: #f6e6cc; --ember: #b4513a; --sage: #2b7651; --sage-soft: #dceee3; --warn: #865700; --warn-soft: #f7ebd0; color-scheme: light }
+* { box-sizing: border-box }
+html, body { min-height: 100% }
+body { background: var(--night); color: var(--ink); font: 16px/1.55 var(--body); margin: 0; -webkit-tap-highlight-color: transparent }
+button { font: inherit; color: inherit }
+main { max-width: 520px; margin: 0 auto; padding-block: 18px 32px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 18px }
+p { margin: 0 }
+h1, h2 { font-family: var(--display); font-weight: 400; margin: 0; text-wrap: balance; letter-spacing: .005em }
+h1 { font-size: 34px; line-height: 1.08 }
+h2 { font-size: 26px; line-height: 1.15 }
+.eyebrow { font: 500 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--haze) }
+.muted { color: var(--haze) }
+.small { font-size: 13px }
+.src { font: 500 11px/1.5 var(--mono); color: var(--haze) }
+.stack { display: grid; gap: 10px }
+
+/* Home */
+.top { display: flex; justify-content: space-between; align-items: center; gap: 12px }
+.journey { display: flex; gap: 4px; align-items: center }
+.journey i { width: 6px; height: 6px; border-radius: 50%; background: var(--line) }
+.journey i.past { background: var(--haze) }
+.journey i.now { background: var(--lamp); box-shadow: 0 0 0 3px var(--lamp-soft) }
+.hero { display: grid; gap: 4px; justify-items: center; text-align: center; padding-top: 4px }
+.house { width: min(78vw, 300px); max-width: 100%; height: auto; overflow: visible }
+.house .roof { fill: var(--dusk-2); stroke: var(--line); stroke-width: 1.5; stroke-linejoin: round }
+.house .wall { fill: var(--dusk); stroke: var(--line); stroke-width: 1.5 }
+.house .door { fill: var(--dusk-2); stroke: var(--line); stroke-width: 1.5 }
+.house .knob { fill: var(--haze) }
+.house .chimney { fill: var(--dusk-2); stroke: var(--line); stroke-width: 1.5 }
+.house .win { fill: var(--dusk-2); stroke: var(--line); stroke-width: 1.5; transition: fill .9s ease, filter .9s ease }
+.house .win.lit { fill: var(--lamp); stroke: var(--lamp); filter: url(#glow) }
+.house .win.today:not(.lit) { stroke: var(--lamp); stroke-dasharray: 3 3; animation: breathe 3.5s ease-in-out infinite }
+.house .bar { stroke: var(--dusk); stroke-width: 1.5; opacity: 0; transition: opacity .9s }
+.house .win.lit + .bar, .house .win.lit + .bar + .bar { opacity: .55 }
+.house .heart { fill: var(--ember); opacity: 0; transition: opacity .6s }
+.house .heart.on { opacity: 1 }
+.house .lbl { fill: var(--haze); font: 500 8px var(--mono); text-anchor: middle }
+@keyframes breathe { 50% { stroke-opacity: .35 } }
+.legend { display: flex; gap: 14px; justify-content: center; font-size: 12px; color: var(--haze) }
+.legend span { display: inline-flex; align-items: center; gap: 6px }
+.legend b { width: 9px; height: 9px; border-radius: 2px; display: inline-block; background: var(--lamp) }
+.legend b.h { border-radius: 50%; background: var(--ember) }
+
+.cta { display: grid; gap: 2px; justify-items: center; width: 100%; border: 0; border-radius: 16px; padding: 16px 18px; background: var(--lamp); color: var(--lamp-ink); cursor: pointer; box-shadow: 0 10px 30px -12px color-mix(in srgb, var(--lamp) 70%, transparent); transition: transform .15s ease }
+.cta:active { transform: scale(.98) }
+.cta b { font: 400 22px/1.1 var(--display) }
+.cta span { font-size: 13px; font-weight: 600; opacity: .8 }
+.cta.quiet { background: var(--dusk); color: var(--ink); border: 1px solid var(--line); box-shadow: none }
+.soft { padding: 12px 14px; border-radius: 12px; background: var(--dusk); border: 1px solid var(--line); display: grid; gap: 4px; font-size: 14px }
+.soft.warn { background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 45%, transparent) }
+.soft.warn b { color: var(--warn) }
+.soft.ok { background: var(--sage-soft); border-color: color-mix(in srgb, var(--sage) 45%, transparent) }
+.focus { font: 400 19px/1.35 var(--display); text-wrap: pretty }
+.nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px }
+.num { padding: 10px 8px; border-radius: 12px; background: var(--dusk); border: 1px solid var(--line); text-align: center; display: grid; gap: 2px }
+.num b { font: 400 26px/1 var(--display); font-variant-numeric: tabular-nums }
+.num span { font-size: 11px; color: var(--haze); line-height: 1.25 }
+.rowlink { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 14px; border-radius: 12px; background: var(--dusk); border: 1px solid var(--line); cursor: pointer }
+.rowlink.hi { border-color: var(--lamp) }
+.rowlink em { font-style: normal; font: 500 12px var(--mono); color: var(--lamp) }
+.datebar { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; color: var(--haze) }
+.datebar button { border: 1px solid var(--line); background: transparent; border-radius: 99px; height: 32px; min-width: 32px; padding: 0 10px; cursor: pointer; color: var(--haze) }
+.datebar button:disabled { opacity: .35; cursor: default }
+.save { font: 500 11px var(--mono); color: var(--haze); text-align: center }
+.save.bad { color: var(--ember) }
+
+/* Session */
+.sess { min-height: 100%; display: grid; grid-template-rows: auto 1fr auto }
+.shead { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--night); padding-block: 12px 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)) }
+.shead-in { max-width: 520px; margin: 0 auto; display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center }
+.x { border: 0; background: transparent; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; color: var(--haze); font-size: 22px; line-height: 1 }
+.prog { display: flex; gap: 4px }
+.prog i { flex: 1; height: 4px; border-radius: 4px; background: var(--line); transition: background .4s }
+.prog i.on { background: var(--lamp) }
+.mins { font: 500 11px var(--mono); color: var(--haze); white-space: nowrap }
+.sbody { max-width: 520px; width: 100%; margin: 0 auto; padding-block: 8px 24px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 16px; align-content: start }
+.sbody.enter { animation: rise .35s ease both }
+@keyframes rise { from { opacity: 0; transform: translateY(10px) } }
+.sfoot { position: sticky; bottom: 0; z-index: 5; background: linear-gradient(to top, var(--night) 70%, transparent); padding-block: 14px calc(14px + env(safe-area-inset-bottom, 0px)); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)) }
+.sfoot-in { max-width: 520px; margin: 0 auto; display: grid; grid-template-columns: auto 1fr; gap: 10px }
+.btn { height: 52px; border-radius: 14px; border: 1px solid var(--line); background: var(--dusk); padding: 0 18px; font-weight: 600; cursor: pointer }
+.btn.go { background: var(--lamp); border-color: var(--lamp); color: var(--lamp-ink); font-size: 17px }
+.btn:active { transform: scale(.98) }
+.lesson { font-size: 17px; line-height: 1.6; max-width: 62ch }
+
+.scale { display: grid; grid-template-columns: repeat(11, 1fr); gap: 4px }
+.scale button { height: 46px; border-radius: 10px; border: 1px solid var(--line); background: var(--dusk); cursor: pointer; font: 500 14px var(--mono); font-variant-numeric: tabular-nums; transition: background .2s, transform .15s }
+.scale button.on { background: var(--lamp); border-color: var(--lamp); color: var(--lamp-ink); transform: translateY(-2px) }
+.scale-l { display: flex; justify-content: space-between; font-size: 12px; color: var(--haze) }
+.pick { display: flex; flex-wrap: wrap; gap: 8px }
+.pick button { min-height: 44px; padding: 0 16px; border-radius: 99px; border: 1px solid var(--line); background: var(--dusk); cursor: pointer; font-weight: 600; font-size: 14px }
+.pick button.on { background: var(--lamp); border-color: var(--lamp); color: var(--lamp-ink) }
+.pick.sm button { min-height: 36px; padding: 0 12px; font-size: 13px }
+
+.flip { perspective: 900px; cursor: pointer; border: 0; padding: 0; background: none; text-align: left; width: 100% }
+.flip-in { position: relative; display: grid; transition: transform .6s cubic-bezier(.3,.7,.2,1); transform-style: preserve-3d; min-height: 180px }
+.flip.on .flip-in { transform: rotateY(180deg) }
+.face { grid-area: 1 / 1; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 16px; padding: 20px; display: grid; gap: 10px; align-content: space-between; border: 1px solid var(--line); background: var(--dusk) }
+.face.back { transform: rotateY(180deg); background: var(--lamp-soft); border-color: color-mix(in srgb, var(--lamp) 50%, transparent) }
+.face p { font: 400 21px/1.35 var(--display) }
+.face.back p { font: 500 17px/1.5 var(--body) }
+
+.orbwrap { display: grid; justify-items: center; gap: 12px; padding: 8px 0 }
+.orb { width: 180px; height: 180px; border-radius: 50%; display: grid; place-items: center; position: relative }
+.orb::before { content: ""; position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--lamp) 85%, transparent) 0%, color-mix(in srgb, var(--lamp) 25%, transparent) 55%, transparent 72%); transform: scale(var(--s, .45)); transition: transform var(--d, 1s) cubic-bezier(.45,0,.35,1) }
+.orb b { position: relative; font: 400 20px var(--display); text-align: center; max-width: 140px; line-height: 1.2 }
+.orb-t { font: 500 14px var(--mono); color: var(--haze); font-variant-numeric: tabular-nums }
+ol.steps { margin: 0; padding: 0; list-style: none; counter-reset: s; display: grid; gap: 8px }
+ol.steps li { counter-increment: s; display: grid; grid-template-columns: 26px 1fr; gap: 10px; font-size: 15px }
+ol.steps li::before { content: counter(s); width: 26px; height: 26px; border-radius: 50%; background: var(--dusk-2); color: var(--lamp); display: grid; place-items: center; font: 500 12px var(--mono) }
+.scene { font: 400 20px/1.4 var(--display); padding: 16px 18px; border-radius: 16px; background: var(--dusk); border: 1px solid var(--line) }
+.model { padding: 14px 16px; border-radius: 12px; background: var(--lamp-soft); font-size: 15px; animation: rise .3s ease both }
+label.lab { font-size: 13px; color: var(--haze); font-weight: 600 }
+textarea { width: 100%; min-height: 96px; font: 16px/1.5 var(--body); padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--dusk); color: var(--ink); resize: vertical }
+textarea::placeholder { color: var(--haze); opacity: .8 }
+.linkbtn { border: 0; background: none; color: var(--lamp); font-weight: 600; cursor: pointer; padding: 6px 0; justify-self: start }
+.said { justify-self: start }
+
+.cnt { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line) }
+.cnt:last-of-type { border-bottom: 0 }
+.cnt .t { font-weight: 600; font-size: 15px }
+.cnt .t small { display: block; font-weight: 400; font-size: 12px; color: var(--haze) }
+.ctr { display: grid; grid-template-columns: 44px 44px 44px; align-items: center }
+.ctr button { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--dusk); cursor: pointer; font-size: 20px; color: var(--lamp) }
+.ctr output { text-align: center; font: 400 26px var(--display); font-variant-numeric: tabular-nums }
+.ctr output.zero { color: var(--sage) }
+.pop { animation: pop .25s ease }
+@keyframes pop { 50% { transform: scale(1.3) } }
+.group { padding: 4px 16px; border-radius: 16px; background: var(--dusk); border: 1px solid var(--line) }
+.yn { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); font-weight: 600; font-size: 15px }
+.yn:last-child { border-bottom: 0 }
+
+.done { text-align: center; justify-items: center; padding-top: 12px }
+.done .house { width: min(60vw, 220px) }
+.evidence { text-align: left; padding: 16px 18px; border-radius: 16px; background: var(--dusk); border: 1px solid var(--line); display: grid; gap: 6px; width: 100% }
+.evidence q { font: 400 19px/1.4 var(--display); quotes: "“" "”" }
+.next-move { font: 400 24px/1.25 var(--display); color: var(--lamp) }
+
+button:focus-visible, textarea:focus-visible { outline: 2px solid var(--lamp); outline-offset: 2px }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before { animation: none !important; transition: none !important }
+  .flip-in { transform: none !important } .flip.on .face.front { visibility: hidden } .face.back { transform: none } .flip:not(.on) .face.back { visibility: hidden }
+}
+</style>
+
+<script type="application/json" id="week">
+{
+  "id": "w1",
+  "week": 1,
+  "of": 6,
+  "start": "auto",
+  "name": "",
+  "title": "The pause",
+  "focus": "Stop the shout before adding anything new. One behaviour: when you feel the surge, pause and breathe before you speak.",
+  "targets": ["Pause before reacting at least once a day", "Log every snap honestly: counts, not grades", "Weekly check-in done on Sunday"],
+  "banners": [
+    {"level": "warn", "title": "This week: notice before you change", "text": "You're not trying to be a different parent yet. You're building one gap between the trigger and your response."}
+  ],
+  "window": {"from": 17.5, "to": 19.5, "title": "Bedtime is still running.", "text": "This will be here after lights out. They're the better use of the next hour."},
+  "reviewHint": "Keep logging the diary. Load next week's config to unlock the next lessons.",
+  "drill": {
+    "title": "Freeze-frame rehearsal",
+    "steps": [
+      "Picture tomorrow's likeliest flashpoint: getting out of the door, dinner, bedtime.",
+      "Feel the surge. Name it silently: 'Frustration, 7/10.'",
+      "Two cyclic sighs: double inhale through the nose, long slow exhale through the mouth.",
+      "Safety test: is anyone in physical danger in the next 60 seconds? Almost always no.",
+      "Get low, soften your voice, say what you'll do, not what they must stop doing.",
+      "Run it twice. Then write what actually happened today in the box."
+    ]
+  },
+  "ifthen": "If I feel myself about to shout, then I'll take two sighs, crouch to their level and say what I'm going to do next.",
+  "days": [
+    {
+      "lesson": "Why the pause comes first",
+      "text": "Kids borrow your nervous system. When you're flooded, they can't calm down, and nothing you teach lands. In a two-year study of families with teenagers, harsh verbal discipline predicted later behaviour problems and low mood, even in warm families. So week one adds nothing new. You build one gap: the pause.",
+      "src": "Wang & Kenny 2014, Child Development; Kennedy 2022, Good Inside",
+      "recall": {"q": "What's the one behaviour this week?", "a": "When you feel the surge, pause and breathe before you speak."},
+      "scene": "School run. Sam (7) is lying on the hall floor with one shoe on. You're already late and you feel your voice rising.",
+      "model": "Two sighs. Crouch down. 'We're leaving in two minutes. I'll carry your other shoe and you can put it on in the car.' Then do exactly that."
+    },
+    {
+      "lesson": "Plan the move, not the 'don't'",
+      "text": "'Don't shout' plans keep the shout in mind. Plans that name a replacement action ('if X, then I'll do Y') roughly double follow-through across hundreds of studies. Give the energy somewhere to go: crouch, lower your voice, narrate what you'll do.",
+      "src": "Gollwitzer & Sheeran 2006; Adriaanse et al. 2011",
+      "recall": {"q": "Why does the pause come before anything else?", "a": "Kids borrow your nervous system. If you're flooded, they can't settle and nothing you teach lands."},
+      "scene": "Dinner. Ava (4) pushes her plate away and says 'Yuck!' for the third night running.",
+      "model": "Safety test: no danger. Neutral voice: 'You don't have to eat it. This is what's for dinner.' Carry on talking to Sam. No bribes, no lecture."
+    },
+    {
+      "lesson": "Name it to tame it",
+      "text": "Putting a feeling into words lowers its intensity. In brain-imaging studies, simply labelling an emotion damped the alarm response. That works for you ('I'm frustrated, 7') and for them ('You're so angry the tower fell'). Name the feeling before you try to fix anything.",
+      "src": "Lieberman et al. 2007, Psychological Science; Siegel & Bryson 2011, The Whole-Brain Child",
+      "recall": {"q": "What makes an if-then plan work better than 'don't shout'?", "a": "It names a replacement action, so the urge has somewhere to go."},
+      "scene": "Sam's tablet time is over. He screams 'You're the worst!' and throws a cushion.",
+      "model": "Label first: 'You're really angry it's over. That makes sense, you were in the middle of a level.' Then the limit: 'I won't let you throw things. The tablet's going on the shelf.'"
+    },
+    {
+      "lesson": "Validate the feeling, hold the limit",
+      "text": "Both, not either. Children whose parents coach emotions (notice, name, accept the feeling, then set limits on behaviour) show better self-regulation, and programmes teaching this cut behaviour problems in trials. The feeling is always allowed. The behaviour isn't.",
+      "src": "Gottman, Katz & Hooven 1996; Havighurst et al. 2010, Tuning in to Kids",
+      "recall": {"q": "What do you do before trying to fix a child's meltdown?", "a": "Name the feeling out loud: 'You're so angry the tower fell.'"},
+      "scene": "Ava wants a second biscuit. You say no and she collapses into sobbing on the kitchen floor.",
+      "model": "Sit nearby. 'You really wanted another one. It's so hard when the answer's no.' Hold the no. Stay close until the wave passes; no extra words needed."
+    },
+    {
+      "lesson": "Repair beats perfection",
+      "text": "Even in healthy parent–baby pairs, interactions are out of sync most of the time. What matters is the repair. A snap you come back to and own teaches more than a perfect day: it shows that relationships survive mistakes. Short, specific, no 'but'.",
+      "src": "Tronick & Gianino 1986; Kennedy 2022, Good Inside",
+      "recall": {"q": "What's the rule for feelings versus behaviour?", "a": "Feelings are always allowed; behaviour has limits. Validate the feeling and hold the limit."},
+      "scene": "You shouted at Sam for spilling his drink. He went quiet and went to his room.",
+      "model": "Knock, sit down: 'I shouted at you about the drink. That wasn't OK. You're not in trouble for spilling. I'm working on staying calm.' Then a hug if he wants one."
+    },
+    {
+      "lesson": "Notice the good out loud",
+      "text": "Specific, labelled praise ('Thank you for sharing the Lego with Ava') increases the behaviour it names, and it's a core skill in parent–child interaction therapy. Vague praise ('good boy') does far less. Aim for more noticing than correcting.",
+      "src": "Eyberg & Funderburk 2011, PCIT protocol; Webster-Stratton, The Incredible Years",
+      "recall": {"q": "What are the three parts of a good repair?", "a": "Short, specific, and no 'but': name what you did, own it, reassure them."},
+      "scene": "Sam lets Ava choose the bedtime story without being asked.",
+      "model": "Catch it while it's happening: 'Sam, you let Ava choose tonight. That was really kind.' Then move on; don't overdo it."
+    },
+    {
+      "lesson": "Ten minutes, their lead",
+      "text": "A short daily block of play where the child leads (you describe, imitate and enjoy, with no questions, commands or teaching) is the foundation of the best-evidenced parenting programmes. It fills the connection tank that makes limits easier to hold. Tomorrow is the weekly check-in.",
+      "src": "Eyberg & Funderburk 2011 (child-directed interaction); Kennedy 2022",
+      "recall": {"q": "What makes praise effective?", "a": "It's specific and labelled: name exactly what they did."},
+      "scene": "Ava asks you to play shops. You've got emails waiting.",
+      "model": "'Yes. Ten minutes, you're the boss.' Phone in another room. Describe what she does: 'You're putting the apples in a row.' No suggestions, no quiz."
+    }
+  ],
+  "diary": {
+    "counts": [
+      ["snaps", "Snapped, shouted or threatened", "raised voice, sarcasm, threats", true, "No snaps today."],
+      ["pauses", "Paused before reacting", "", false],
+      ["repairs", "Repairs made", "came back and owned it", false],
+      ["praise", "Specific praise given", "named exactly what they did", false]
+    ],
+    "yesno": [
+      ["special", "10 minutes of child-led play"],
+      ["named", "Named a feeling out loud for them"],
+      ["phoneFree", "Phone away at bedtime"]
+    ],
+    "heart": "special",
+    "heartLabel": "special time",
+    "heartStat": "days with special time",
+    "warmLabel": "One good moment, however small",
+    "warmPlaceholder": "A laugh, a hug, something they said."
+  },
+  "stats": [["snaps", "snaps this week"], ["repairs", "repairs made"]],
+  "done": {
+    "evidenceLine": "This is the parent you're practising to be.",
+    "nextMove": "Phone away. Go and be with them.",
+    "nextMoveDone": "Phone away. Goodnight."
+  },
+  "weekly": {
+    "note": "A four-question self-pulse, not a clinical scale. Watch the trend, not one week.",
+    "questions": [
+      {"q": "How calm did you feel as a parent this week?", "opts": [[0, "Not at all"], [1, "A little"], [2, "Somewhat"], [3, "Mostly"], [4, "Very"], [5, "Completely"]]},
+      {"q": "How connected did you feel to your children?", "opts": [[0, "Not at all"], [1, "A little"], [2, "Somewhat"], [3, "Mostly"], [4, "Very"], [5, "Completely"]]},
+      {"q": "How confident were you in the hard moments?", "opts": [[0, "Not at all"], [1, "A little"], [2, "Somewhat"], [3, "Mostly"], [4, "Very"], [5, "Completely"]]},
+      {"q": "How much did you enjoy being with them?", "opts": [[0, "Not at all"], [1, "A little"], [2, "Somewhat"], [3, "Mostly"], [4, "Very"], [5, "Completely"]]}
+    ],
+    "counter": {"label": "Times they came to you", "sub": "for comfort, play, or to show you something"},
+    "toggle": {"label": "Talked one thing through with a co-parent or friend", "yes": "Done", "no": "Not yet"},
+    "after": "Next week's lessons load from the next config file."
+  },
+  "footer": "Ten minutes after the kids are down."
+}
+</script>
+
+<div id="app"></div>
+
+<script>
+(() => {
+  const CFG = JSON.parse(document.getElementById('week').textContent);
+  const app = document.getElementById('app');
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const ukDate = (d = new Date()) => d.toLocaleDateString('en-CA');
+  const ukHour = () => { const p = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }).split(':'); return +p[0] + p[1] / 60 };
+  const toMs = s => Date.parse(s + 'T12:00:00Z');
+  const addDays = (s, n) => new Date(toMs(s) + n * 864e5).toISOString().slice(0, 10);
+  // "start": "auto" runs the demo from the most recent Sunday, so a visitor always lands mid-week.
+  if (CFG.start === 'auto') { const t = ukDate(); CFG.start = addDays(t, -new Date(toMs(t)).getUTCDay()) }
+  const dayIdx = s => Math.round((toMs(s) - toMs(CFG.start)) / 864e5);
+  const fmtDate = (s, o = { weekday: 'short', day: 'numeric', month: 'short' }) => new Date(toMs(s)).toLocaleDateString('en-GB', Object.assign({ timeZone: 'UTC' }, o));
+  const buzz = (n = 8) => { try { navigator.vibrate && navigator.vibrate(n) } catch (e) {} };
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ---------- state ----------
+  // Everything the diary and weekly check-in ask comes from the config, so the same engine runs any course.
+  const DI = CFG.diary, WK = CFG.weekly, HEART = DI.heart;
+  const blankDiary = () => { const o = { peak: null, warm: '' }; DI.counts.forEach(c => o[c[0]] = 0); DI.yesno.forEach(c => o[c[0]] = null); return o };
+  const blankDay = date => ({ date, week: CFG.id, stress: null, recallGot: null, drill: '', line: '', saidAloud: false, ifthen: CFG.ifthen, done: false, completedAt: null,
+    diary: blankDiary(), updatedAt: null });
+  const blankWeek = () => ({ week: CFG.id, answers: WK.questions.map(() => null), counter: 0, toggle: false, reflection: '', updatedAt: null });
+  const mergeDay = (d, date) => { const b = blankDay(date); d = d ? JSON.parse(JSON.stringify(d)) : {}; return Object.assign(b, d, { diary: Object.assign(b.diary, d.diary) }) };
+  const mergeWeek = d => { const b = blankWeek(); d = d ? JSON.parse(JSON.stringify(d)) : {}; return Object.assign(b, d, { answers: Object.assign(b.answers.slice(), d.answers) }) };
+  const lget = k => { try { return JSON.parse(localStorage.getItem('dp-' + k) || 'null') } catch (e) { return null } };
+  const lset = (k, v) => { try { localStorage.setItem('dp-' + k, JSON.stringify(v)) } catch (e) {} };
+
+  let viewDate = ukDate(), day = blankDay(viewDate), wk = blankWeek(), allDays = {};
+  let db = null, dayRef = null, weekRef = null, saveMsg = '', saveBad = false;
+  let view = 'home', step = 0;
+  const timers = {}, dirty = {}; let lastLocal = 0; let cleanups = [];
+  const setSave = (t, bad) => { saveMsg = t; saveBad = !!bad; const s = document.getElementById('save'); if (s) { s.textContent = t; s.className = 'save' + (bad ? ' bad' : '') } };
+
+  const persist = which => {
+    const obj = which === 'day' ? day : wk, ref = which === 'day' ? dayRef : weekRef;
+    obj.updatedAt = new Date().toISOString();
+    lset(which === 'day' ? 'day-' + day.date : 'week-' + CFG.id, obj);
+    if (which === 'day') allDays[day.date] = JSON.parse(JSON.stringify(day));
+    if (!ref) return;
+    dirty[which] = true;
+    clearTimeout(timers[which]);
+    timers[which] = setTimeout(async () => {
+      try { lastLocal = Date.now(); await ref.set(JSON.parse(JSON.stringify(obj))); dirty[which] = false; setSave('Saved ✓') }
+      catch (e) { dirty[which] = false; setSave('Not saved (' + (e && e.code || 'error') + '). Kept on this phone.', true) }
+    }, 600);
+  };
+
+  // ---------- helpers ----------
+  const h = (tag, attrs = {}, html) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k.startsWith('on')) e[k] = v; else e.setAttribute(k, v) } if (html != null) e.innerHTML = html; return e };
+  const pick = (opts, cur, onPick, cls = '') => {
+    const w = h('div', { class: 'pick ' + cls, role: 'group' });
+    opts.forEach(([v, lab]) => { const b = h('button', { type: 'button', class: cur === v ? 'on' : '', 'aria-pressed': String(cur === v) }, esc(lab));
+      b.onclick = () => { buzz(); onPick(cur === v ? null : v) }; w.appendChild(b) });
+    return w;
+  };
+  const scale = (cur, onPick, lo, hi) => {
+    const w = h('div', { class: 'stack' }); const g = h('div', { class: 'scale', role: 'group' });
+    for (let i = 0; i <= 10; i++) { const b = h('button', { type: 'button', class: cur === i ? 'on' : '', 'aria-pressed': String(cur === i), 'aria-label': String(i) }, String(i)); b.onclick = () => { buzz(); onPick(cur === i ? null : i) }; g.appendChild(b) }
+    w.append(g, h('div', { class: 'scale-l' }, `<span>${esc(lo)}</span><span>${esc(hi)}</span>`)); return w;
+  };
+  const area = (id, val, ph, onIn) => { const t = h('textarea', { id, placeholder: ph }); t.value = val || ''; t.oninput = () => onIn(t.value); return t };
+  const lessonFor = d => CFG.days[Math.min(Math.max(dayIdx(d), 0), CFG.days.length - 1)];
+  const weekDays = () => Array.from({ length: 7 }, (_, i) => addDays(CFG.start, i));
+  const logged = d => !!(d && (d.done || (d.diary && (d.diary[HEART] != null || d.diary.peak !== null))));
+
+  // ---------- the house ----------
+  function house(highlight) {
+    const W = [[37, 82], [77, 82], [117, 82], [157, 82], [37, 124], [77, 124], [157, 124]];
+    const today = ukDate();
+    let wins = '';
+    weekDays().forEach((d, i) => {
+      const [x, y] = W[i], rec = allDays[d], lit = logged(rec) && d !== highlight, warm = rec && rec.diary && rec.diary[HEART] === true;
+      const cls = 'win' + (lit ? ' lit' : '') + (d === today ? ' today' : '');
+      wins += `<rect class="${cls}" data-d="${d}" x="${x}" y="${y}" width="26" height="28" rx="2"><title>${esc(fmtDate(d, { weekday: 'long' }))}${lit ? ', shown up' : ''}</title></rect>`
+        + `<line class="bar" x1="${x + 13}" y1="${y}" x2="${x + 13}" y2="${y + 28}"></line><line class="bar" x1="${x}" y1="${y + 14}" x2="${x + 26}" y2="${y + 14}"></line>`
+        + `<circle class="heart${warm && d !== highlight ? ' on' : ''}" data-h="${d}" cx="${x + 13}" cy="${y + 36}" r="2.6"></circle>`
+        + `<text class="lbl" x="${x + 13}" y="${y - 4}">${esc(fmtDate(d, { weekday: 'narrow' }))}</text>`;
+    });
+    return `<svg class="house" viewBox="0 0 220 176" role="img" aria-label="This week as a house: one window per night">
+      <defs><filter id="glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+      <rect class="chimney" x="150" y="22" width="18" height="34"></rect>
+      <path class="roof" d="M12 70 L110 12 L208 70 Z"></path>
+      <rect class="wall" x="25" y="68" width="170" height="104"></rect>
+      <rect class="door" x="114" y="124" width="32" height="48" rx="14"></rect><circle class="knob" cx="139" cy="150" r="2"></circle>
+      ${wins}</svg>`;
+  }
+
+  // ---------- views ----------
+  let lastScreen = '', entering = true;
+  function render() {
+    const screen = view + '|' + step + '|' + viewDate, y = window.scrollY;
+    entering = screen !== lastScreen; lastScreen = screen;
+    cleanups.forEach(f => { try { f() } catch (e) {} }); cleanups = [];
+    app.innerHTML = '';
+    if (view === 'home') renderHome(); else if (view === 'week') renderWeekly(); else renderSession();
+    window.scrollTo(0, entering ? 0 : y);
+  }
+
+  function greeting() { const hr = ukHour(), g = hr < 12 ? 'Morning' : hr < 17 ? 'Afternoon' : 'Evening'; return CFG.name ? g + ', ' + CFG.name : g }
+
+  function renderHome() {
+    const m = h('main');
+    const idx = dayIdx(viewDate), isToday = viewDate === ukDate();
+    const j = Array.from({ length: CFG.of }, (_, i) => `<i class="${i + 1 < CFG.week ? 'past' : i + 1 === CFG.week ? 'now' : ''}"></i>`).join('');
+    m.appendChild(h('div', { class: 'top' }, `<span class="eyebrow">Week ${CFG.week} of ${CFG.of} · ${esc(CFG.title)}</span><span class="journey" aria-label="Week ${CFG.week} of ${CFG.of}">${j}</span>`));
+
+    const lit = weekDays().filter(d => logged(allDays[d])).length;
+    const hero = h('section', { class: 'hero' });
+    hero.innerHTML = `<p class="muted small">${esc(greeting())}</p>${house()}
+      <h1>${lit === 0 ? 'The lights come on one night at a time' : lit === 1 ? 'One window lit' : lit + ' windows lit'}</h1>
+      <div class="legend"><span><b></b>showed up</span><span><b class="h"></b>${esc(DI.heartLabel)}</span></div>`;
+    m.appendChild(hero);
+
+    const hr = ukHour();
+    const W0 = CFG.window;
+    if (W0 && isToday && !day.done && hr >= W0.from && hr < W0.to) m.appendChild(h('div', { class: 'soft' }, `<b>${esc(W0.title)}</b><span class="muted">${esc(W0.text)}</span>`));
+    if (idx > 6) m.appendChild(h('div', { class: 'soft warn' }, `<b>Week ${CFG.week} is finished.</b><span>${esc(CFG.reviewHint)}</span>`));
+
+    const started = !day.done && (day.stress != null || (lget('step-' + viewDate) || 0) > 0);
+    const cta = h('button', { type: 'button', class: 'cta' + (day.done ? ' quiet' : '') });
+    cta.innerHTML = day.done ? `<b>${isToday ? 'Tonight' : esc(fmtDate(viewDate))} is done</b><span>Open to look back or edit</span>`
+      : started ? `<b>Carry on</b><span>Step ${Math.min((lget('step-' + viewDate) || 0) + 1, 7)} of 7 · about ${Math.max(10 - (lget('step-' + viewDate) || 0) * 1.5, 2) | 0} min left</span>`
+      : `<b>${isToday ? 'Begin tonight' : 'Log ' + esc(fmtDate(viewDate))}</b><span>10 minutes · ${esc(lessonFor(viewDate).lesson)}</span>`;
+    cta.onclick = () => { buzz(12); view = 'session'; step = day.done ? 0 : (lget('step-' + viewDate) || 0); render() };
+    m.appendChild(cta);
+
+    m.appendChild(h('section', { class: 'soft' }, `<span class="eyebrow">This week's one thing</span><p class="focus">${esc(CFG.focus)}</p>`));
+    CFG.banners.forEach(b => {
+      const done = b.doneWhenToggle && wk.toggle;
+      m.appendChild(h('div', { class: 'soft ' + (done ? 'ok' : b.level) }, done ? `<b>${esc(b.doneText)}</b>` : `<b>${esc(b.title)}</b><span>${esc(b.text)}</span>`));
+    });
+
+    const ds = weekDays().map(d => allDays[d]).filter(Boolean);
+    const sum = k => ds.reduce((a, d) => a + ((d.diary && d.diary[k]) || 0), 0);
+    const nl = ds.filter(logged).length, warm = ds.filter(d => d.diary && d.diary[HEART] === true).length;
+    const nums = h('section', { class: 'nums' });
+    nums.innerHTML = CFG.stats.map(([k, lab]) => `<div class="num"><b>${sum(k)}</b><span>${esc(lab)}</span></div>`).join('') + `<div class="num"><b>${warm}<small class="muted" style="font-size:15px">/${nl || 0}</small></b><span>${esc(DI.heartStat)}</span></div>`;
+    m.appendChild(nums);
+
+    const isSun = idx === 0 || idx > 6;
+    const csiDone = wk.answers.every(v => v != null), maxScore = WK.questions.reduce((a, q) => a + q.opts[q.opts.length - 1][0], 0);
+    const wl = h('button', { type: 'button', class: 'rowlink' + (isSun && !csiDone ? ' hi' : '') }, `<span><b>Weekly check-in</b><br><span class="muted small">${csiDone ? 'Done · ' + wk.answers.reduce((a, b) => a + b, 0) + '/' + maxScore : WK.questions.length + ' questions, three minutes'}</span></span><em>${isSun && !csiDone ? 'Due' : '›'}</em>`);
+    wl.onclick = () => { view = 'week'; render() };
+    m.appendChild(wl);
+
+    const dbar = h('div', { class: 'datebar' });
+    const pv = h('button', { type: 'button', 'aria-label': 'Previous day' }, '‹'); pv.onclick = () => loadDay(addDays(viewDate, -1));
+    const nx = h('button', { type: 'button', 'aria-label': 'Next day' }, '›'); nx.disabled = isToday; nx.onclick = () => loadDay(addDays(viewDate, 1));
+    dbar.append(pv, h('span', {}, 'Logging for ' + esc(fmtDate(viewDate)) + (isToday ? ' (today)' : '')), nx);
+    if (!isToday) { const t = h('button', { type: 'button' }, 'Today'); t.onclick = () => loadDay(ukDate()); dbar.appendChild(t) }
+    m.appendChild(dbar);
+    m.appendChild(h('p', { id: 'save', class: 'save' + (saveBad ? ' bad' : '') }, esc(saveMsg)));
+    app.appendChild(m);
+  }
+
+  // Session steps
+  const regulation = () => day.stress != null && day.stress >= 8;
+  const STEPS = () => regulation() ? ['checkin', 'breathe', 'diary', 'done'] : ['checkin', 'recall', 'learn', 'drill', 'rehearse', 'plan', 'diary', 'done'];
+  const MINS = { checkin: '30 sec', recall: '1 min', learn: '2 min', drill: '3 min', rehearse: '2 min', plan: '30 sec', diary: '1 min', breathe: '5 min', done: '' };
+
+  function renderSession() {
+    const S = STEPS(); step = Math.min(step, S.length - 1); const id = S[step];
+    if (id !== 'done') lset('step-' + viewDate, step);
+    const wrap = h('div', { class: 'sess' });
+    const head = h('header', { class: 'shead' }); const hi = h('div', { class: 'shead-in' });
+    const x = h('button', { type: 'button', class: 'x', 'aria-label': 'Back to home' }, '×'); x.onclick = () => { view = 'home'; render() };
+    const prog = h('div', { class: 'prog', 'aria-label': `Step ${Math.min(step + 1, S.length - 1)} of ${S.length - 1}` });
+    S.slice(0, -1).forEach((_, i) => prog.appendChild(h('i', { class: i <= step ? 'on' : '' })));
+    hi.append(x, prog, h('span', { class: 'mins' }, esc(MINS[id])));
+    head.appendChild(hi);
+    const body = h('section', { class: 'sbody' + (entering ? ' enter' : '') });
+    const L = lessonFor(viewDate);
+    ({ checkin, recall, learn, drill, rehearse, plan, diary, breathe, done })[id](body, L);
+    const foot = h('footer', { class: 'sfoot' }); const fi = h('div', { class: 'sfoot-in' });
+    const back = h('button', { type: 'button', class: 'btn' }, step === 0 ? 'Home' : 'Back');
+    back.onclick = () => { if (step === 0) view = 'home'; else step--; render() };
+    const nextLabel = id === 'done' ? 'Close' : id === 'diary' ? 'Finish the night' : id === 'checkin' && regulation() ? 'Breathe first' : 'Next';
+    const next = h('button', { type: 'button', class: 'btn go' }, nextLabel);
+    next.onclick = () => {
+      buzz(12);
+      if (id === 'done') { view = 'home'; render(); return }
+      if (id === 'diary') { day.done = true; day.completedAt = day.completedAt || new Date().toISOString(); persist('day'); lset('step-' + viewDate, 0) }
+      step++; render();
+    };
+    fi.append(back, next); foot.appendChild(fi);
+    wrap.append(head, body, foot); app.appendChild(wrap);
+  }
+
+  function checkin(b) {
+    b.append(h('span', { class: 'eyebrow' }, esc(fmtDate(viewDate, { weekday: 'long', day: 'numeric', month: 'long' }))),
+      h('h2', {}, 'How wound up are you right now?'),
+      h('p', { class: 'muted' }, 'Be honest. A high number changes tonight into a calmer, shorter session.'));
+    b.appendChild(scale(day.stress, v => { day.stress = v; persist('day'); render() }, 'Calm', 'Flooded'));
+    if (regulation()) b.appendChild(h('div', { class: 'soft warn' }, '<b>Tonight is a regulation night.</b><span>No lesson. Five minutes of breathing, then the diary. It still lights a window.</span>'));
+  }
+
+  function recall(b, L) {
+    b.append(h('span', { class: 'eyebrow' }, 'Recall · from memory first'));
+    const card = h('button', { type: 'button', class: 'flip' + (day.recallGot != null ? ' on' : ''), 'aria-label': 'Flip to see the answer' });
+    card.innerHTML = `<div class="flip-in"><div class="face front"><p>${esc(L.recall.q)}</p><span class="src">Answer in your head, then tap to turn</span></div><div class="face back"><span class="eyebrow">Answer</span><p>${esc(L.recall.a)}</p></div></div>`;
+    const gotWrap = h('div', { class: 'stack' }); gotWrap.hidden = day.recallGot == null;
+    gotWrap.append(h('p', { class: 'muted small' }, 'Did you have it?'), pick([[true, 'Had it'], [false, 'Not quite']], day.recallGot, v => { day.recallGot = v; persist('day'); render() }));
+    card.onclick = () => { card.classList.toggle('on'); buzz(); gotWrap.hidden = false };
+    b.append(card, gotWrap);
+  }
+
+  function learn(b, L) {
+    b.append(h('span', { class: 'eyebrow' }, 'Tonight’s idea'), h('h2', {}, esc(L.lesson)), h('p', { class: 'lesson' }, esc(L.text)), h('p', { class: 'src' }, 'Evidence: ' + esc(L.src)));
+  }
+
+  function breathOrb(seconds, label) {
+    const w = h('div', { class: 'orbwrap' });
+    const orb = h('div', { class: 'orb' }, `<b>${esc(label || 'Tap start when ready')}</b>`); const t = h('div', { class: 'orb-t' }, fmt(seconds));
+    const btn = h('button', { type: 'button', class: 'btn' }, 'Start'); w.append(orb, t, btn);
+    const PH = [['Breathe in', 2000, 0.78], ['A little more', 1000, 1], ['Long breath out', 6000, 0.42]];
+    let left = seconds, run = false, pi = 0, tick = null, phase = null, lock = null;
+    function fmt(s) { return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') }
+    const doPhase = () => { if (!run) return; const [txt, ms, s] = PH[pi % 3]; orb.style.setProperty('--d', ms + 'ms'); orb.style.setProperty('--s', s); orb.querySelector('b').textContent = txt; if (pi % 3 === 0) buzz(15); pi++; phase = setTimeout(doPhase, ms) };
+    const stop = () => { run = false; clearInterval(tick); clearTimeout(phase); orb.style.setProperty('--s', .45); try { lock && lock.release() } catch (e) {} lock = null };
+    btn.onclick = async () => {
+      if (run) { stop(); btn.textContent = 'Resume'; orb.querySelector('b').textContent = 'Paused'; return }
+      run = true; btn.textContent = 'Pause'; doPhase();
+      try { lock = await navigator.wakeLock.request('screen') } catch (e) {}
+      tick = setInterval(() => { left--; t.textContent = fmt(Math.max(left, 0)); if (left <= 0) { stop(); left = seconds; btn.textContent = 'Again'; orb.querySelector('b').textContent = 'Done. Notice your shoulders.'; buzz([30, 60, 30]) } }, 1000);
+    };
+    cleanups.push(stop);
+    return w;
+  }
+
+  function breathe(b) {
+    b.append(h('span', { class: 'eyebrow' }, 'Cyclic sighing'), h('h2', {}, 'Bring the body down first'),
+      h('p', { class: 'muted' }, 'Two breaths in through the nose, the second a short top-up. Then a long, slow breath out through the mouth. Five minutes daily lifted mood more than mindfulness did in Balban et al. 2023.'),
+      breathOrb(300));
+  }
+
+  function drill(b) {
+    b.append(h('span', { class: 'eyebrow' }, 'Drill'), h('h2', {}, esc(CFG.drill.title)));
+    const ol = h('ol', { class: 'steps' }); CFG.drill.steps.forEach(s => ol.appendChild(h('li', {}, `<span>${esc(s)}</span>`))); b.appendChild(ol);
+    b.append(h('p', { class: 'muted small' }, 'Use the light for step 3.'), breathOrb(60, 'Two sighs, then run the scene'));
+    b.append(h('label', { class: 'lab', for: 'drill' }, 'When the urge fired today, what happened?'), area('drill', day.drill, 'Trigger · how strong (0–10) · what I did · what I’d do next time', v => { day.drill = v; persist('day') }));
+  }
+
+  function rehearse(b, L) {
+    b.append(h('span', { class: 'eyebrow' }, 'Rehearse'), h('p', { class: 'scene' }, esc(L.scene)));
+    b.append(h('label', { class: 'lab', for: 'line' }, 'What do you say or do?'), area('line', day.line, 'Your exact words.', v => { day.line = v; persist('day') }));
+    b.appendChild(pick([[true, 'I said it out loud']], day.saidAloud ? true : null, v => { day.saidAloud = !!v; persist('day'); render() }, 'said'));
+    const mv = h('div', { class: 'model' }, `<span class="eyebrow">One good answer</span><br>${esc(L.model)}`); mv.hidden = true;
+    const mb = h('button', { type: 'button', class: 'linkbtn' }, 'Compare with a model answer'); mb.onclick = () => { mv.hidden = !mv.hidden; mb.textContent = mv.hidden ? 'Compare with a model answer' : 'Hide the model answer' };
+    b.append(mb, mv);
+  }
+
+  function plan(b) {
+    b.append(h('span', { class: 'eyebrow' }, 'Tomorrow'), h('h2', {}, 'When it happens, what will you do?'),
+      h('p', { class: 'muted' }, 'Name the moment, then the move. Plans that say what to do work better than plans that say what not to do.'),
+      area('ifthen', day.ifthen, '', v => { day.ifthen = v; persist('day') }));
+  }
+
+  function diary(b) {
+    b.append(h('span', { class: 'eyebrow' }, 'Diary · counts, not grades'), h('h2', {}, 'How did today actually go?'));
+    const C = DI.counts, LOW = C.filter(c => c[3]).map(c => c[0]);
+    const g = h('div', { class: 'group' });
+    C.forEach(([k, t, s]) => {
+      const r = h('div', { class: 'cnt' }); r.appendChild(h('div', { class: 't' }, esc(t) + (s ? `<small>${esc(s)}</small>` : '')));
+      const ctr = h('div', { class: 'ctr' }); const out = h('output', { class: day.diary[k] === 0 && LOW.includes(k) ? 'zero' : '' }, String(day.diary[k]));
+      const bump = d => { day.diary[k] = Math.max(0, day.diary[k] + d); out.textContent = day.diary[k]; out.classList.toggle('zero', day.diary[k] === 0 && LOW.includes(k)); out.classList.remove('pop'); void out.offsetWidth; out.classList.add('pop'); buzz(); persist('day') };
+      ctr.append(h('button', { type: 'button', 'aria-label': 'One less', onclick: () => bump(-1) }, '−'), out, h('button', { type: 'button', 'aria-label': 'One more', onclick: () => bump(1) }, '+'));
+      r.appendChild(ctr); g.appendChild(r);
+    });
+    b.appendChild(g);
+    const y = h('div', { class: 'group' });
+    DI.yesno.forEach(([k, t]) => {
+      const r = h('div', { class: 'yn' }, `<span>${esc(t)}</span>`); r.appendChild(pick([[true, 'Yes'], [false, 'No']], day.diary[k], v => { day.diary[k] = v; persist('day'); render() }, 'sm')); y.appendChild(r);
+    });
+    b.appendChild(y);
+    b.append(h('p', { class: 'lab' }, 'Most wound up you got today'), scale(day.diary.peak, v => { day.diary.peak = v; persist('day'); render() }, 'Calm all day', 'Flooded'));
+    b.append(h('label', { class: 'lab', for: 'warm' }, esc(DI.warmLabel)), area('warm', day.diary.warm, DI.warmPlaceholder, v => { day.diary.warm = v; persist('day') }));
+  }
+
+  function done(b) {
+    b.classList.add('done');
+    const d = day.diary;
+    const facts = [];
+    DI.counts.forEach(([k, t, , low, zero]) => { if (low && d[k] === 0 && zero) facts.push(zero); else if (d[k] > 0) facts.push(`${t}: ${d[k]}.`) });
+    const past = Object.values(allDays).filter(x => x && x.date !== viewDate && x.diary && x.diary.warm && x.diary.warm.trim());
+    const ev = past.length ? past[Math.floor(Math.random() * past.length)] : (d.warm && d.warm.trim() ? day : null);
+    b.innerHTML = `${house(viewDate)}<h2>${viewDate === ukDate() ? 'Tonight' : esc(fmtDate(viewDate, { weekday: 'long' }))} is in.</h2><p class="muted">${facts.map(esc).join(' ')}</p>`;
+    if (ev) b.appendChild(h('div', { class: 'evidence' }, `<span class="eyebrow">Evidence · ${esc(fmtDate(ev.date, { weekday: 'long' }))}</span><q>${esc(ev.diary.warm)}</q><span class="muted small">${esc(CFG.done.evidenceLine)}</span>`));
+    if (viewDate === ukDate()) b.appendChild(h('p', { class: 'next-move' }, d[HEART] == null ? CFG.done.nextMove : CFG.done.nextMoveDone));
+    setTimeout(() => { const w = b.querySelector(`.win[data-d="${viewDate}"]`), hh = b.querySelector(`.heart[data-h="${viewDate}"]`); if (w) { w.classList.add('lit'); buzz([20, 80, 20]) } if (hh && d[HEART] === true) setTimeout(() => hh.classList.add('on'), 700) }, reduced ? 0 : 450);
+  }
+
+  function renderWeekly() {
+    const wrap = h('div', { class: 'sess' });
+    const head = h('header', { class: 'shead' }); const hi = h('div', { class: 'shead-in' });
+    const x = h('button', { type: 'button', class: 'x', 'aria-label': 'Back to home' }, '×'); x.onclick = () => { view = 'home'; render() };
+    hi.append(x, h('span', { class: 'eyebrow' }, 'Weekly check-in · Week ' + CFG.week), h('span', { class: 'mins' }, '3 min')); head.appendChild(hi);
+    const b = h('section', { class: 'sbody' + (entering ? ' enter' : '') });
+    b.append(h('h2', {}, 'Looking back over the last seven days'), h('p', { class: 'muted small' }, esc(WK.note)));
+    WK.questions.forEach(({ q, opts }, i) => { const s = h('div', { class: 'stack' }); s.append(h('p', { class: 'lab' }, esc(q)), pick(opts, wk.answers[i], v => { wk.answers[i] = v; persist('week'); render() }, 'sm')); b.appendChild(s) });
+    const tot = wk.answers.every(v => v != null) ? wk.answers.reduce((a, c) => a + c, 0) : null, maxScore = WK.questions.reduce((a, q) => a + q.opts[q.opts.length - 1][0], 0);
+    b.appendChild(h('div', { class: 'soft' }, `<span class="eyebrow">Your score</span><p class="focus">${tot == null ? 'Answer them all to see it' : tot + ' out of ' + maxScore}</p>`));
+    const g = h('div', { class: 'group' });
+    const r = h('div', { class: 'cnt' }, `<div class="t">${esc(WK.counter.label)}<small>${esc(WK.counter.sub)}</small></div>`);
+    const out = h('output', {}, String(wk.counter)); const bump = d => { wk.counter = Math.max(0, wk.counter + d); out.textContent = wk.counter; out.classList.remove('pop'); void out.offsetWidth; out.classList.add('pop'); buzz(); persist('week') };
+    const ctr = h('div', { class: 'ctr' }); ctr.append(h('button', { type: 'button', 'aria-label': 'One less', onclick: () => bump(-1) }, '−'), out, h('button', { type: 'button', 'aria-label': 'One more', onclick: () => bump(1) }, '+')); r.appendChild(ctr); g.appendChild(r);
+    const t = h('div', { class: 'yn' }, `<span>${esc(WK.toggle.label)}</span>`); t.appendChild(pick([[true, WK.toggle.yes], [false, WK.toggle.no]], wk.toggle, v => { wk.toggle = v === true; persist('week'); render() }, 'sm')); g.appendChild(t);
+    b.appendChild(g);
+    b.append(h('label', { class: 'lab', for: 'refl' }, 'What worked, what surprised you, what you’ll change'), area('refl', wk.reflection, '', v => { wk.reflection = v; persist('week') }));
+    b.appendChild(h('p', { class: 'muted small' }, esc(WK.after)));
+    const foot = h('footer', { class: 'sfoot' }); const fi = h('div', { class: 'sfoot-in' }); fi.style.gridTemplateColumns = '1fr';
+    const c = h('button', { type: 'button', class: 'btn go' }, 'Done'); c.onclick = () => { view = 'home'; render() }; fi.appendChild(c); foot.appendChild(fi);
+    wrap.append(head, b, foot); app.appendChild(wrap);
+  }
+
+  // ---------- data ----------
+  async function loadDay(date) {
+    viewDate = date;
+    day = mergeDay(lget('day-' + date) || allDays[date], date);
+    render();
+    if (!db) return;
+    dayRef = db.doc('days/' + date);
+    try { const s = await dayRef.get(); if (viewDate !== date) return; if (s.exists) { day = mergeDay(s.data(), date); if (view === 'home') render() } }
+    catch (e) { setSave('Could not load (' + (e && e.code || 'error') + ').', true) }
+  }
+
+  wk = mergeWeek(lget('week-' + CFG.id));
+  weekDays().forEach(d => { const l = lget('day-' + d); if (l) allDays[d] = l });
+  loadDay(viewDate);
+
+  (async () => {
+    // Optional sync backend: where the host provides a document store, entries sync there; otherwise localStorage only.
+    try { db = window.claude && window.claude.use ? await window.claude.use('db') : null } catch (e) { db = null }
+    if (!db) { setSave('Saved on this device ✓'); return }
+    weekRef = db.doc('weeks/' + CFG.id);
+    try { const s = await weekRef.get(); if (s.exists) { wk = mergeWeek(s.data()); if (view === 'home') render() } } catch (e) {}
+    db.collection('days').onSnapshot(snap => {
+      snap.docs.forEach(d => { allDays[d.id] = d.data() });
+      const cur = allDays[viewDate];
+      if (cur && !dirty.day && Date.now() - lastLocal > 1500) day = mergeDay(cur, viewDate);
+      if (view === 'home') render();
+    }, () => {});
+    await loadDay(viewDate);
+    setSave('Saved ✓');
+  })();
+})();
+</script>
